@@ -10,26 +10,58 @@ const DEFAULT_ENDPOINT = 'https://opencode.ai/zen/v1'
 const DEFAULT_MODEL = 'mimo-v2.5-free'
 
 const AVAILABLE_MODELS = [
-  // Free models
+  // ── 🔓 Free Models ──
   { id: 'mimo-v2.5-free', name: 'MiMo-V2.5 Free', cost: 'Free', endpoint: 'chat/completions' },
   { id: 'nemotron-3-ultra-free', name: 'Nemotron 3 Ultra Free', cost: 'Free', endpoint: 'chat/completions' },
   { id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash Free', cost: 'Free', endpoint: 'chat/completions' },
   { id: 'big-pickle', name: 'Big Pickle', cost: 'Free', endpoint: 'chat/completions' },
-  // Paid models
+  // ── OpenAI / GPT ──
+  { id: 'gpt-5.5', name: 'GPT 5.5', cost: '$5.00/$30.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.5-pro', name: 'GPT 5.5 Pro', cost: '$30.00/$180.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.4', name: 'GPT 5.4', cost: '$2.50/$15.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.4-pro', name: 'GPT 5.4 Pro', cost: '$30.00/$180.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.4-mini', name: 'GPT 5.4 Mini', cost: '$0.75/$4.50', endpoint: 'chat/completions' },
+  { id: 'gpt-5.4-nano', name: 'GPT 5.4 Nano', cost: '$0.20/$1.25', endpoint: 'chat/completions' },
+  { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex', cost: '$1.75/$14.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.3-codex-spark', name: 'GPT 5.3 Codex Spark', cost: '$1.75/$14.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.2', name: 'GPT 5.2', cost: '$1.75/$14.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex', cost: '$1.75/$14.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.1', name: 'GPT 5.1', cost: '$1.07/$8.50', endpoint: 'chat/completions' },
+  { id: 'gpt-5.1-codex', name: 'GPT 5.1 Codex', cost: '$1.07/$8.50', endpoint: 'chat/completions' },
+  { id: 'gpt-5.1-codex-max', name: 'GPT 5.1 Codex Max', cost: '$1.25/$10.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5.1-codex-mini', name: 'GPT 5.1 Codex Mini', cost: '$0.25/$2.00', endpoint: 'chat/completions' },
+  { id: 'gpt-5', name: 'GPT 5', cost: '$1.07/$8.50', endpoint: 'chat/completions' },
+  { id: 'gpt-5-codex', name: 'GPT 5 Codex', cost: '$1.07/$8.50', endpoint: 'chat/completions' },
+  { id: 'gpt-5-nano', name: 'GPT 5 Nano', cost: '$0.05/$0.40', endpoint: 'chat/completions' },
+  // ── Anthropic / Claude ──
+  { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', cost: '$5.00/$25.00', endpoint: 'messages' },
+  { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', cost: '$5.00/$25.00', endpoint: 'messages' },
+  { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', cost: '$5.00/$25.00', endpoint: 'messages' },
+  { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', cost: '$5.00/$25.00', endpoint: 'messages' },
+  { id: 'claude-opus-4-1', name: 'Claude Opus 4.1', cost: '$15.00/$75.00', endpoint: 'messages' },
+  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', cost: '$3.00/$15.00', endpoint: 'messages' },
+  { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', cost: '$3.00/$15.00 (≤200K)', endpoint: 'messages' },
+  { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', cost: '$3.00/$15.00 (≤200K)', endpoint: 'messages' },
+  { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', cost: '$1.00/$5.00', endpoint: 'messages' },
+  { id: 'claude-3-5-haiku', name: 'Claude 3.5 Haiku', cost: '$?/?', endpoint: 'messages' },
+  // ── Google / Gemini ──
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', cost: '$1.50/$9.00', endpoint: 'gemini-3.5-flash' },
+  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', cost: '$2.00/$12.00 (≤200K)', endpoint: 'gemini-3.1-pro' },
+  { id: 'gemini-3-flash', name: 'Gemini 3 Flash', cost: '$0.50/$3.00', endpoint: 'gemini-3-flash' },
+  // ── Qwen (Anthropic/messages endpoint) ──
+  { id: 'qwen3.7-max', name: 'Qwen3.7 Max', cost: '$2.50/$7.50', endpoint: 'messages' },
+  { id: 'qwen3.7-plus', name: 'Qwen3.7 Plus', cost: '$0.40/$1.60', endpoint: 'messages' },
+  { id: 'qwen3.6-plus', name: 'Qwen3.6 Plus', cost: '$0.50/$3.00', endpoint: 'messages' },
+  { id: 'qwen3.5-plus', name: 'Qwen3.5 Plus', cost: '$0.20/$1.20', endpoint: 'messages' },
+  // ── Other OpenAI-compatible ──
   { id: 'minimax-m2.7', name: 'MiniMax M2.7', cost: '$0.30/$1.20', endpoint: 'chat/completions' },
   { id: 'minimax-m2.5', name: 'MiniMax M2.5', cost: '$0.30/$1.20', endpoint: 'chat/completions' },
   { id: 'glm-5.1', name: 'GLM 5.1', cost: '$1.40/$4.40', endpoint: 'chat/completions' },
+  { id: 'glm-5', name: 'GLM 5', cost: '$1.00/$3.20', endpoint: 'chat/completions' },
   { id: 'kimi-k2.5', name: 'Kimi K2.5', cost: '$0.60/$3.00', endpoint: 'chat/completions' },
+  { id: 'kimi-k2.6', name: 'Kimi K2.6', cost: '$0.95/$4.00', endpoint: 'chat/completions' },
   { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', cost: '$0.14/$0.28', endpoint: 'chat/completions' },
   { id: 'grok-build-0.1', name: 'Grok Build 0.1', cost: '$1.00/$2.00', endpoint: 'chat/completions' },
-  { id: 'gemini-3-flash', name: 'Gemini 3 Flash', cost: '$0.50/$3.00', endpoint: 'gemini-3-flash' },
-  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', cost: '$1.50/$9.00', endpoint: 'gemini-3.5-flash' },
-  // Claude (Anthropic endpoint)
-  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', cost: '$3.00/$15.00', endpoint: 'messages' },
-  { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', cost: '$1.00/$5.00', endpoint: 'messages' },
-  // GPT models
-  { id: 'gpt-5.4-nano', name: 'GPT 5.4 Nano', cost: '$0.20/$1.25', endpoint: 'chat/completions' },
-  { id: 'gpt-5.4-mini', name: 'GPT 5.4 Mini', cost: '$0.75/$4.50', endpoint: 'chat/completions' },
 ]
 
 export { AVAILABLE_MODELS }
