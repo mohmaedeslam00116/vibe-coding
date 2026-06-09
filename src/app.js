@@ -10,18 +10,20 @@ import { icons, getFileIcon } from './services/icons.js'
 
 // ── State ──
 const state = {
-  view: 'landing', // 'landing' | 'workspace' | 'preview'
+  view: 'landing',
   idea: storage.getLastIdea(),
   project: null,
   fileTree: null,
   activeFile: null,
-  activeTab: 'editor', // 'editor' | 'preview'
+  activeTab: 'editor',
   openTabs: [],
   apiKey: storage.getApiKey(),
   model: storage.getSettings().model || 'mimo-v2.5-free',
   useProxy: storage.getSettings().useProxy !== false,
   customEndpoint: storage.getSettings().customEndpoint || '',
   isGenerating: false,
+  lastRequestTime: 0, // timestamp of last API request (for rate limiting)
+  COOLDOWN_MS: 8000,  // 8 seconds between requests
   buildStages: [],
   logs: [],
   previewURL: null,
@@ -162,6 +164,15 @@ function attachLandingEvents() {
       if (!state.apiKey) {
         showToast('Please set your API key first', 'error')
         showApiKeyModal()
+        return
+      }
+
+      // ⏱ Rate limit check: prevent rapid requests
+      const now = Date.now()
+      const timeSinceLast = now - state.lastRequestTime
+      if (state.lastRequestTime > 0 && timeSinceLast < state.COOLDOWN_MS) {
+        const waitSeconds = Math.ceil((state.COOLDOWN_MS - timeSinceLast) / 1000)
+        showToast(`Please wait ${waitSeconds}s before next request (rate limit)`, 'warning')
         return
       }
 
@@ -741,9 +752,11 @@ async function startGeneration(idea) {
         // Could update a progress indicator here
       },
       onComplete: (project) => {
+        state.lastRequestTime = Date.now()
         onProjectComplete(project)
       },
       onError: (error) => {
+        state.lastRequestTime = Date.now()
         state.isGenerating = false
         updateStage('complete', 'error', error.message)
         state.logs.push({ type: 'error', text: `Error: ${error.message}`, time: getTimestamp() })
@@ -752,8 +765,9 @@ async function startGeneration(idea) {
     })
 
   } catch (error) {
-    state.isGenerating = false
-    state.buildStages = state.buildStages.map(s => 
+  state.isGenerating = false
+  state.lastRequestTime = Date.now()
+  state.buildStages = state.buildStages.map(s => 
       s.id === 'complete' ? { ...s, status: 'error', error: error.message } : s
     )
     state.logs.push({ type: 'error', text: `Generation failed: ${error.message}`, time: getTimestamp() })
