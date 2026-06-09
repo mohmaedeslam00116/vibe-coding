@@ -19,7 +19,8 @@ const state = {
   openTabs: [],
   apiKey: storage.getApiKey(),
   model: storage.getSettings().model || 'mimo-v2.5-free',
-  useProxy: storage.getSettings().useProxy !== false, // default true
+  useProxy: storage.getSettings().useProxy !== false,
+  customEndpoint: storage.getSettings().customEndpoint || '',
   isGenerating: false,
   buildStages: [],
   logs: [],
@@ -579,14 +580,26 @@ function showApiKeyModal() {
       <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border);">
         <label style="display: flex; align-items: center; gap: var(--space-3); cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary);">
           <input type="checkbox" id="proxy-toggle" ${state.useProxy ? 'checked' : ''} style="width: auto; accent-color: var(--accent);">
-          <span>Use CORS Proxy (required for most APIs in browser)</span>
+          <span>Use CORS Proxy (Netlify Function — 10s timeout)</span>
         </label>
-        <div style="margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--warning); line-height: 1.5;">
-          <strong>⚠️ ملاحظة:</strong> خدمة Netlify المجانية لها مهلة 10 ثوانٍ للدالة الواحدة. قد لا تكفي للمشاريع الكبيرة.
-          <br>للحصول على مهلة أطول:
-          <br>• <strong>Netlify Pro</strong> — يسمح حتى 900 ثانية (15 دقيقة)
-          <br>• <strong>Cloudflare Workers</strong> — بديل مجاني بمهلة 30 ثانية ويدعم Stream
-          <br>• <strong>أو استخدم مزود API</strong> يدعم CORS مباشرة (مثل OpenAI) وألغِ تفعيل الـ Proxy
+        <div id="proxy-warning" style="margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--warning); line-height: 1.5; ${state.useProxy ? '' : 'display:none;'}">
+          <strong>⚠️ مهلة 10 ثوانٍ فقط</strong> — قد لا تكفي للمشاريع الكبيرة. استخدم Cloudflare Worker للحصول على 30 ثانية + Stream حقيقي مجاناً.
+        </div>
+        <div id="endpoint-section" style="margin-top: var(--space-3); ${state.useProxy ? 'display:none;' : ''}">
+          <div class="input-group">
+            <label for="endpoint-input">Custom Proxy URL (Cloudflare Worker or other)</label>
+            <input
+              id="endpoint-input"
+              type="url"
+              placeholder="https://zen-proxy.your-name.workers.dev"
+              value="${escapeHtml(state.customEndpoint)}"
+            >
+          </div>
+          <div style="margin-top: var(--space-2); font-size: var(--fs-xs); color: var(--text-tertiary); line-height: 1.5;">
+            انشر <code style="background: var(--elevated); padding: 1px 4px; border-radius: 3px;">cloudflare-worker.js</code> 
+            في Cloudflare Workers والصق الرابط هنا. 
+            <a href="#" id="show-cf-steps" style="color: var(--accent);">كيف؟</a>
+          </div>
         </div>
       </div>
       <div class="modal-actions">
@@ -602,7 +615,23 @@ function showApiKeyModal() {
   // Focus input
   const input = overlay.querySelector('#api-key-input')
   const modelSelect = overlay.querySelector('#model-select')
+  const proxyToggle = overlay.querySelector('#proxy-toggle')
+  const endpointSection = overlay.querySelector('#endpoint-section')
+  const endpointInput = overlay.querySelector('#endpoint-input')
+  const proxyWarning = overlay.querySelector('#proxy-warning')
+
   setTimeout(() => input.focus(), 100)
+
+  // Proxy toggle — show/hide endpoint section
+  proxyToggle.addEventListener('change', () => {
+    if (proxyToggle.checked) {
+      endpointSection.style.display = 'none'
+      proxyWarning.style.display = ''
+    } else {
+      endpointSection.style.display = ''
+      proxyWarning.style.display = 'none'
+    }
+  })
 
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
@@ -629,13 +658,14 @@ function showApiKeyModal() {
       return
     }
     const selectedModel = modelSelect.value
-    const proxyToggle = overlay.querySelector('#proxy-toggle')
     const useProxy = proxyToggle.checked
+    const customEndpoint = endpointInput?.value?.trim() || ''
     state.apiKey = key
     state.model = selectedModel
     state.useProxy = useProxy
+    state.customEndpoint = customEndpoint
     storage.setApiKey(key)
-    storage.setSettings({ ...storage.getSettings(), model: selectedModel, useProxy })
+    storage.setSettings({ ...storage.getSettings(), model: selectedModel, useProxy, customEndpoint })
     closeModal(overlay)
     render()
     showToast('Settings saved', 'success')
@@ -691,7 +721,10 @@ function showToast(message, type = 'info') {
 async function startGeneration(idea) {
   state.isGenerating = true
 
-  const api = createAPI(state.model, { useProxy: state.useProxy })
+  const api = createAPI(state.model, {
+    useProxy: state.useProxy,
+    endpoint: state.useProxy ? undefined : (state.customEndpoint || undefined),
+  })
   api.setApiKey(state.apiKey)
 
   try {
