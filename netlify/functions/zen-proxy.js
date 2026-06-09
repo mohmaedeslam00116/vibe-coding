@@ -59,7 +59,7 @@ exports.handler = async (event) => {
         messages: messages,
         temperature: temperature ?? 0.7,
         max_tokens: max_tokens ?? 16000,
-        stream: true,
+        stream: false,
       }),
     })
 
@@ -79,29 +79,25 @@ exports.handler = async (event) => {
       }
     }
 
-    // Buffer the streaming response (Netlify Functions don't support streaming body)
-    const chunks = []
-    const reader = upstreamResponse.body.getReader()
-    const decoder = new TextDecoder()
+    // Get the full JSON response (non-streaming)
+    const data = await upstreamResponse.json()
+    const content = data?.choices?.[0]?.message?.content || ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(typeof value === 'string' ? value : decoder.decode(value, { stream: true }))
+    if (!content) {
+      return {
+        statusCode: 502,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Empty response from API — no content generated' }),
+      }
     }
-    // Flush decoder
-    chunks.push(decoder.decode())
-
-    const body = chunks.join('')
 
     return {
       statusCode: 200,
       headers: {
         ...CORS_HEADERS,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/json',
       },
-      body: body,
+      body: JSON.stringify({ content }),
     }
 
   } catch (error) {

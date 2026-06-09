@@ -250,65 +250,19 @@ export class OpenCodeAPI {
         throw new Error(errorData.error || `Proxy error (${response.status})`)
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let fullContent = ''
+      // Proxy returns JSON with full content
+      const result = await response.json()
+      const fullContent = result.content || ''
 
-      const EMITTED_STAGES = {
-        'architecture': false,
-        'generation': false,
-        'validation': false,
-      }
-
-      onStage?.('architecture')
-      onLog?.('info', 'Designing project architecture...')
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data: ')) continue
-          const data = trimmed.slice(6)
-          if (data === '[DONE]') continue
-
-          try {
-            const parsed = JSON.parse(data)
-            const content = parsed.choices?.[0]?.delta?.content || ''
-            if (!content) continue
-
-            fullContent += content
-
-            if (!EMITTED_STAGES.architecture && 
-                (fullContent.includes('```') || fullContent.includes('Project Structure'))) {
-              EMITTED_STAGES.architecture = true
-              if (fullContent.includes('```')) {
-                onStage?.('generation')
-                onLog?.('info', 'Generating source code...')
-              }
-            }
-            if (!EMITTED_STAGES.validation &&
-                (fullContent.match(/```/g)?.length >= 6)) {
-              EMITTED_STAGES.validation = true
-              onStage?.('validation')
-              onLog?.('info', 'Validating generated project...')
-            }
-
-            onProgress?.(fullContent)
-          } catch {
-            // Skip malformed SSE lines
-          }
-        }
+      if (!fullContent) {
+        throw new Error('Empty response from server')
       }
 
       onLog?.('success', 'Code generation complete!')
       onLog?.('info', 'Processing file structure...')
+      onStage?.('architecture')
+      onStage?.('generation')
+      onStage?.('validation')
 
       const project = this._parseProject(fullContent)
 
