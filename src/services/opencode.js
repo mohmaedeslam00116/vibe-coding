@@ -105,7 +105,7 @@ export class OpenCodeAPI {
     }
 
     // Direct API call (for environments without CORS issues)
-    const apiUrl = `${this.endpoint}/${apiPath}`
+    const apiUrl = `${this.endpoint}/${apiPath}`.replace(/\/\//g, '/')
     onLog?.('info', `Endpoint: ${apiUrl}`)
 
     try {
@@ -125,6 +125,7 @@ export class OpenCodeAPI {
           temperature: 0.7,
           max_tokens: 16000,
           stream: true,
+          apiKey: this.apiKey, // Some proxies read key from body
         }),
       })
 
