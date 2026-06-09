@@ -581,6 +581,13 @@ function showApiKeyModal() {
           <input type="checkbox" id="proxy-toggle" ${state.useProxy ? 'checked' : ''} style="width: auto; accent-color: var(--accent);">
           <span>Use CORS Proxy (required for most APIs in browser)</span>
         </label>
+        <div style="margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--warning); line-height: 1.5;">
+          <strong>⚠️ ملاحظة:</strong> خدمة Netlify المجانية لها مهلة 10 ثوانٍ للدالة الواحدة. قد لا تكفي للمشاريع الكبيرة.
+          <br>للحصول على مهلة أطول:
+          <br>• <strong>Netlify Pro</strong> — يسمح حتى 900 ثانية (15 دقيقة)
+          <br>• <strong>Cloudflare Workers</strong> — بديل مجاني بمهلة 30 ثانية ويدعم Stream
+          <br>• <strong>أو استخدم مزود API</strong> يدعم CORS مباشرة (مثل OpenAI) وألغِ تفعيل الـ Proxy
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="api-key-cancel">Cancel</button>
