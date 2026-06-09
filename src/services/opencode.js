@@ -105,7 +105,8 @@ export class OpenCodeAPI {
     }
 
     // Direct API call (for environments without CORS issues)
-    onLog?.('info', `Endpoint: ${this.endpoint}/${apiPath}`)
+    const apiUrl = `${this.endpoint}/${apiPath}`
+    onLog?.('info', `Endpoint: ${apiUrl}`)
 
     try {
       onStage?.('planning')
