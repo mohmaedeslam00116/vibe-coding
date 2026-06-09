@@ -6,7 +6,7 @@
  * User provides their own API key.
  */
 
-const DEFAULT_ENDPOINT = 'https://opencode.ai/zen/v1'
+const DEFAULT_ENDPOINT = '/zen/v1'
 const DEFAULT_MODEL = 'mimo-v2.5-free'
 
 const AVAILABLE_MODELS = [
@@ -71,7 +71,6 @@ export class OpenCodeAPI {
     this.endpoint = options.endpoint || DEFAULT_ENDPOINT
     this.model = options.model || DEFAULT_MODEL
     this.apiKey = options.apiKey || ''
-    this.useProxy = options.useProxy ?? true // Use Netlify Function proxy by default
   }
 
   setApiKey(key) {
@@ -80,7 +79,6 @@ export class OpenCodeAPI {
 
   /**
    * Generate a complete project from a natural language description
-   * Uses streaming to provide real-time progress updates
    */
   async generateProject(idea, callbacks = {}) {
     const { onProgress, onStage, onLog, onComplete, onError } = callbacks
@@ -95,18 +93,11 @@ export class OpenCodeAPI {
     const systemPrompt = this._buildSystemPrompt()
     const userPrompt = this._buildProjectPrompt(idea)
 
-    // Determine correct API path for the selected model
     const modelInfo = AVAILABLE_MODELS.find(m => m.id === this.model)
     const apiPath = modelInfo?.endpoint || 'chat/completions'
+    const apiUrl = `${this.endpoint}/${apiPath}`.replace(/\/+/g, '/')
 
-    if (this.useProxy) {
-      onLog?.('info', 'Using CORS proxy...')
-      return await this._generateViaProxy(idea, systemPrompt, userPrompt, callbacks)
-    }
-
-    // Direct API call (for environments without CORS issues)
-    const apiUrl = `${this.endpoint}/${apiPath}`.replace(/\/\//g, '/')
-    onLog?.('info', `Endpoint: ${apiUrl}`)
+    onLog?.('info', `Connecting via Netlify CDN proxy...`)
 
     try {
       onStage?.('planning')
@@ -125,7 +116,6 @@ export class OpenCodeAPI {
           temperature: 0.7,
           max_tokens: 16000,
           stream: true,
-          apiKey: this.apiKey, // Some proxies read key from body
         }),
       })
 
@@ -244,78 +234,6 @@ export class OpenCodeAPI {
           `Cannot connect to the API at ${this.endpoint}. ` +
           `Verify the endpoint URL and API key. If the API does not allow browser requests (CORS), ` +
           `you may need a proxy or a different provider.`
-        )
-      }
-      onError?.(error)
-      throw error
-    }
-  }
-
-  /**
-   * Generate project via Netlify Function proxy (solves CORS)
-   */
-  async _generateViaProxy(idea, systemPrompt, userPrompt, callbacks) {
-    const { onProgress, onStage, onLog, onComplete, onError } = callbacks
-
-    const modelInfo = AVAILABLE_MODELS.find(m => m.id === this.model)
-    const apiPath = modelInfo?.endpoint || 'chat/completions'
-
-    onLog?.('info', 'Sending request to proxy...')
-
-    try {
-      onStage?.('planning')
-      const response = await fetch('/api/zen-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: this.apiKey,
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 16000,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Proxy error (${response.status})`)
-      }
-
-      // Proxy returns JSON with full content
-      const result = await response.json()
-      const fullContent = result.content || ''
-
-      if (!fullContent) {
-        throw new Error('Empty response from server')
-      }
-
-      onLog?.('success', 'Code generation complete!')
-      onLog?.('info', 'Processing file structure...')
-      onStage?.('architecture')
-      onStage?.('generation')
-      onStage?.('validation')
-
-      const project = this._parseProject(fullContent)
-
-      if (!project || project.files.length === 0) {
-        throw new Error('No files could be extracted from the response.')
-      }
-
-      onLog?.('success', `Extracted ${project.files.length} files`)
-      onLog?.('info', `Project: ${project.name}`)
-      onStage?.('preview')
-      onLog?.('info', 'Preparing preview...')
-
-      onComplete?.(project)
-      return project
-
-    } catch (error) {
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        error = new Error(
-          'Cannot reach the CORS proxy. Make sure you are running via Netlify (netlify dev or deployed).'
         )
       }
       onError?.(error)
@@ -541,8 +459,8 @@ export function buildFileTree(files) {
 }
 
 /**
- * Create an instance with the stored API key
+ * Create an API instance with the given model
  */
-export function createAPI(model, options = {}) {
-  return new OpenCodeAPI({ model, ...options })
+export function createAPI(model) {
+  return new OpenCodeAPI({ model })
 }

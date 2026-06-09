@@ -1,7 +1,6 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
 
 [[headers]]
   for = "/*"
@@ -15,10 +14,13 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# 🌟 Proxy: /zen/* ← طلبات API تذهب إلى OpenCode Zen عبر Netlify CDN
+# لا Function ولا Worker ولا CORS ولا Rate Limit!
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/zen-proxy"
+  from = "/zen/*"
+  to = "https://opencode.ai/zen/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

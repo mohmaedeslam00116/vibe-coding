@@ -19,11 +19,7 @@ const state = {
   openTabs: [],
   apiKey: storage.getApiKey(),
   model: storage.getSettings().model || 'mimo-v2.5-free',
-  useProxy: storage.getSettings().useProxy !== false,
-  customEndpoint: storage.getSettings().customEndpoint || '',
   isGenerating: false,
-  lastRequestTime: 0, // timestamp of last API request (for rate limiting)
-  COOLDOWN_MS: 8000,  // 8 seconds between requests
   buildStages: [],
   logs: [],
   previewURL: null,
@@ -164,15 +160,6 @@ function attachLandingEvents() {
       if (!state.apiKey) {
         showToast('Please set your API key first', 'error')
         showApiKeyModal()
-        return
-      }
-
-      // ⏱ Rate limit check: prevent rapid requests
-      const now = Date.now()
-      const timeSinceLast = now - state.lastRequestTime
-      if (state.lastRequestTime > 0 && timeSinceLast < state.COOLDOWN_MS) {
-        const waitSeconds = Math.ceil((state.COOLDOWN_MS - timeSinceLast) / 1000)
-        showToast(`Please wait ${waitSeconds}s before next request (rate limit)`, 'warning')
         return
       }
 
@@ -588,31 +575,6 @@ function showApiKeyModal() {
           Get API key & see all models →
         </a>
       </div>
-      <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border);">
-        <label style="display: flex; align-items: center; gap: var(--space-3); cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary);">
-          <input type="checkbox" id="proxy-toggle" ${state.useProxy ? 'checked' : ''} style="width: auto; accent-color: var(--accent);">
-          <span>Use CORS Proxy (Netlify Function — 10s timeout)</span>
-        </label>
-        <div id="proxy-warning" style="margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--warning); line-height: 1.5; ${state.useProxy ? '' : 'display:none;'}">
-          <strong>⚠️ مهلة 10 ثوانٍ فقط</strong> — قد لا تكفي للمشاريع الكبيرة. استخدم Cloudflare Worker للحصول على 30 ثانية + Stream حقيقي مجاناً.
-        </div>
-        <div id="endpoint-section" style="margin-top: var(--space-3); ${state.useProxy ? 'display:none;' : ''}">
-          <div class="input-group">
-            <label for="endpoint-input">Custom Proxy URL (Cloudflare Worker or other)</label>
-            <input
-              id="endpoint-input"
-              type="url"
-              placeholder="https://zen-proxy.your-name.workers.dev"
-              value="${escapeHtml(state.customEndpoint)}"
-            >
-          </div>
-          <div style="margin-top: var(--space-2); font-size: var(--fs-xs); color: var(--text-tertiary); line-height: 1.5;">
-            انشر <code style="background: var(--elevated); padding: 1px 4px; border-radius: 3px;">cloudflare-worker.js</code> 
-            في Cloudflare Workers والصق الرابط هنا. 
-            <a href="#" id="show-cf-steps" style="color: var(--accent);">كيف؟</a>
-          </div>
-        </div>
-      </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="api-key-cancel">Cancel</button>
         <button class="btn btn-danger" id="api-key-clear" ${state.apiKey ? '' : 'disabled'}>Clear</button>
@@ -626,23 +588,7 @@ function showApiKeyModal() {
   // Focus input
   const input = overlay.querySelector('#api-key-input')
   const modelSelect = overlay.querySelector('#model-select')
-  const proxyToggle = overlay.querySelector('#proxy-toggle')
-  const endpointSection = overlay.querySelector('#endpoint-section')
-  const endpointInput = overlay.querySelector('#endpoint-input')
-  const proxyWarning = overlay.querySelector('#proxy-warning')
-
   setTimeout(() => input.focus(), 100)
-
-  // Proxy toggle — show/hide endpoint section
-  proxyToggle.addEventListener('change', () => {
-    if (proxyToggle.checked) {
-      endpointSection.style.display = 'none'
-      proxyWarning.style.display = ''
-    } else {
-      endpointSection.style.display = ''
-      proxyWarning.style.display = 'none'
-    }
-  })
 
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
@@ -669,14 +615,10 @@ function showApiKeyModal() {
       return
     }
     const selectedModel = modelSelect.value
-    const useProxy = proxyToggle.checked
-    const customEndpoint = endpointInput?.value?.trim() || ''
     state.apiKey = key
     state.model = selectedModel
-    state.useProxy = useProxy
-    state.customEndpoint = customEndpoint
     storage.setApiKey(key)
-    storage.setSettings({ ...storage.getSettings(), model: selectedModel, useProxy, customEndpoint })
+    storage.setSettings({ ...storage.getSettings(), model: selectedModel })
     closeModal(overlay)
     render()
     showToast('Settings saved', 'success')
@@ -732,10 +674,7 @@ function showToast(message, type = 'info') {
 async function startGeneration(idea) {
   state.isGenerating = true
 
-  const api = createAPI(state.model, {
-    useProxy: state.useProxy,
-    endpoint: state.useProxy ? undefined : (state.customEndpoint || undefined),
-  })
+  const api = createAPI(state.model)
   api.setApiKey(state.apiKey)
 
   try {
@@ -752,11 +691,9 @@ async function startGeneration(idea) {
         // Could update a progress indicator here
       },
       onComplete: (project) => {
-        state.lastRequestTime = Date.now()
         onProjectComplete(project)
       },
       onError: (error) => {
-        state.lastRequestTime = Date.now()
         state.isGenerating = false
         updateStage('complete', 'error', error.message)
         state.logs.push({ type: 'error', text: `Error: ${error.message}`, time: getTimestamp() })
@@ -766,7 +703,6 @@ async function startGeneration(idea) {
 
   } catch (error) {
   state.isGenerating = false
-  state.lastRequestTime = Date.now()
   state.buildStages = state.buildStages.map(s => 
       s.id === 'complete' ? { ...s, status: 'error', error: error.message } : s
     )
