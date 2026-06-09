@@ -94,14 +94,19 @@ export default {
 }
 
 function getModelPath(model) {
-  const geminiModels = ['gemini-3-flash', 'gemini-3.5-flash', 'gemini-3.1-pro']
+  const geminiModels = [
+    'gemini-3.5-flash', 'gemini-3.1-pro', 'gemini-3-flash',
+  ]
   const claudeModels = [
+    // Claude
+    'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5', 'claude-opus-4-1',
     'claude-sonnet-4-6', 'claude-sonnet-4-5', 'claude-sonnet-4',
     'claude-haiku-4-5', 'claude-3-5-haiku',
-    'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5', 'claude-opus-4-1',
+    // Qwen (use Anthropic/messages endpoint)
     'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-plus', 'qwen3.5-plus',
   ]
+
   if (geminiModels.includes(model)) return `models/${model}`
   if (claudeModels.includes(model)) return 'messages'
-  return 'chat/completions'
+  return 'chat/completions' // GPT, MiniMax, GLM, Kimi, DeepSeek, Grok, etc.
 }
